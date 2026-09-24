@@ -1,0 +1,18 @@
+# Local deployment config (holds your domain, KV id, Access team + AUD)
+wrangler.toml
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+
+# Local desktop launcher settings (holds your URL)
+desktop/ringcheck.local.json
+
+# Build and tooling
+node_modules/
+.wrangler/
+dist/
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,5 @@
+# Copy to .dev.vars (git-ignored) for `npm run dev` on localhost.
+DEV_BYPASS_ACCESS=true
+TELNYX_API_KEY=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=

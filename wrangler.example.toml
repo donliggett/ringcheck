@@ -1,0 +1,29 @@
+# Copy to wrangler.toml (git-ignored) or run .\setup.ps1, which fills this in for you.
+name = "ringcheck"
+main = "src/index.js"
+compatibility_date = "2026-09-24"
+workers_dev = false
+preview_urls = false
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[routes]]
+pattern = "__HOSTNAME__"            # e.g. ringcheck.example.com (zone must be on Cloudflare)
+custom_domain = true
+
+[[kv_namespaces]]
+binding = "RINGCHECK_KV"
+id = "__KV_NAMESPACE_ID__"          # from: npx wrangler kv namespace create RINGCHECK_KV
+
+[vars]
+TEAM_DOMAIN = "__TEAM_DOMAIN__"     # e.g. https://your-team.cloudflareaccess.com
+POLICY_AUD = "__POLICY_AUD__"       # Access application AUD tag; fill in after Access is set up
+ALLOWED_EMAILS = ""                 # optional, comma-separated; blank = anyone Access lets in
+
+# Secrets (never in this file):
+#   npx wrangler secret put TELNYX_API_KEY
+#   npx wrangler secret put TWILIO_ACCOUNT_SID
+#   npx wrangler secret put TWILIO_AUTH_TOKEN

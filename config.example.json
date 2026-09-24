@@ -1,0 +1,12 @@
+{
+  "services": {
+    "cnam":    { "enabled": true, "provider": "telnyx" },
+    "carrier": { "enabled": true, "provider": "telnyx" }
+  },
+  "prices": {
+    "telnyx": { "cnam": 0.003, "carrier": 0.0025 },
+    "twilio": { "cnam": 0.01,  "carrier": 0.008 }
+  },
+  "monthlyCapUsd": 2.0,
+  "cacheDays": { "cnam": 30, "carrier": 7 }
+}

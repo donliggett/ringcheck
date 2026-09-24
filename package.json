@@ -1,0 +1,19 @@
+{
+  "name": "ringcheck",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private reverse phone lookup for calls you receive: free FCC complaint checks plus optional Telnyx/Twilio caller name and carrier, on one Cloudflare Worker behind Cloudflare Access.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "jose": "^6.2.12"
+  },
+  "devDependencies": {
+    "wrangler": "^4.139.0"
+  }
+}

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>RingCheck</title>
+<meta name="description" content="Private reverse phone lookup for calls you receive.">
+<meta name="theme-color" content="#15201B">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="head">
+    <span class="brand">RingCheck</span>
+    <span class="pill num" id="spend" hidden></span>
+  </header>
+
+  <section class="panel form" aria-label="Look up a number">
+    <form id="form" class="field" autocomplete="off">
+      <label class="lbl" for="num">Number</label>
+      <input id="num" name="num" type="text" inputmode="tel" placeholder="(202) 555-0187" autofocus>
+      <fieldset class="svc" id="svc">
+        <legend>Services for this lookup</legend>
+        <div id="svcRows"></div>
+      </fieldset>
+      <div class="row">
+        <button class="btn" id="go" type="submit">Look up</button>
+      </div>
+      <p class="note" id="apiNote" hidden></p>
+    </form>
+  </section>
+
+  <main class="result" id="result" aria-live="polite">
+    <div class="empty">Paste or type a number. Pasting runs the lookup.</div>
+  </main>
+
+  <aside class="side">
+    <section class="panel" aria-labelledby="histH">
+      <div class="row between">
+        <span class="lbl" id="histH">Recent</span>
+        <button class="ghost" type="button" id="clearHist">Clear</button>
+      </div>
+      <ul class="hist" id="hist"></ul>
+      <p class="note" id="histEmpty">Lookups you make on this device show here. They're stored only in this browser.</p>
+    </section>
+
+    <section class="panel">
+      <details class="settings" id="settings">
+        <summary>Paid services and budget</summary>
+        <form class="set-grid" id="setForm">
+          <div id="setRows"></div>
+          <div class="set-row">
+            <span></span>
+            <label for="cap">Monthly cap (USD)</label>
+            <input id="cap" type="number" min="0" max="1000" step="0.25">
+          </div>
+          <div class="row"><button class="btn" type="submit">Save settings</button></div>
+          <p class="status" id="setStatus" role="status"></p>
+        </form>
+      </details>
+    </section>
+  </aside>
+</div>
+<script src="/npa.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

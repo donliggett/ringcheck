@@ -22,16 +22,15 @@ npx wrangler login
 
 ## 2. Create your local config
 
-Pick a hostname on your domain, e.g. `ringcheck.example.com`. Your Access team
-domain comes from Zero Trust (step 4); if you don't have one yet, choose a team
-name there first.
+Pick a hostname on your domain, e.g. `ringcheck.example.com`.
 
 ```powershell
-.\setup.ps1 -Hostname ringcheck.example.com -TeamDomain https://your-team.cloudflareaccess.com -CreateKv
+.\setup.ps1 -Hostname ringcheck.example.com -CreateKv
 ```
 
 This writes `wrangler.toml` (git-ignored) and creates the `RINGCHECK_KV`
-namespace. The API refuses every request (403) until step 5 sets the AUD tag.
+namespace. The API refuses every request (403) until step 4 puts Access in
+front of the Worker.
 
 ## 3. Deploy
 
@@ -50,16 +49,21 @@ In the Cloudflare dashboard:
 2. **Settings > Authentication:** keep **One-time PIN** as a login method.
 3. **Workers & Pages > ringcheck > Access tab > Protect this Worker behind
    Access**, all traffic.
-4. **Policy:** allow only your own email address.
+4. **Policy:** allow only yourself. The quick options there are
+   *Cloudflare account members* or *Email domain*; for a single address,
+   first create a policy in **Zero Trust > Access > Policies** with the
+   selector **Emails**, then pick it here.
 5. **Session duration:** 1 month, so the iPhone and desktop don't ask for a
    code every time.
-6. Copy the application's **AUD tag** (Zero Trust > Access > Applications >
-   ringcheck > Overview).
+
+Worker-level Access passes the signed-in identity to the Worker directly, so
+there is no AUD tag to copy. (Using a hostname-based Access application
+instead? Run `.\setup.ps1 -TeamDomain https://your-team.cloudflareaccess.com -Aud <tag>`.)
 
 ## 5. Finish the config and add provider keys
 
 ```powershell
-.\setup.ps1 -Aud <paste-aud-tag>
+.\setup.ps1 -AllowedEmails you@example.com
 npx wrangler deploy
 npx wrangler secret put TELNYX_API_KEY
 npx wrangler secret put TWILIO_ACCOUNT_SID
@@ -67,8 +71,7 @@ npx wrangler secret put TWILIO_AUTH_TOKEN
 ```
 
 Skip any provider you don't use; the page shows it as "no API key set".
-Optional: `.\setup.ps1 -AllowedEmails you@example.com` makes the Worker check
-the signed-in email too.
+`-AllowedEmails` is optional: the Worker then also checks the signed-in email.
 
 ## 6. Check it
 
@@ -149,7 +152,7 @@ mkdir -p ~/.local/pwsh
 tar -xzf /tmp/pwsh.tgz -C ~/.local/pwsh
 chmod +x ~/.local/pwsh/pwsh
 rm /tmp/pwsh.tgz
-~/.local/pwsh/pwsh -NoProfile -File ./setup.ps1 -Hostname ringcheck.example.com -TeamDomain https://your-team.cloudflareaccess.com -CreateKv
+~/.local/pwsh/pwsh -NoProfile -File ./setup.ps1 -Hostname ringcheck.example.com -CreateKv
 ```
 
 Without PowerShell: `cp wrangler.example.toml wrangler.toml` and fill in the
@@ -159,7 +162,7 @@ Deploy, Access and secrets are the same as steps 3 to 5:
 
 ```bash
 npx wrangler deploy
-~/.local/pwsh/pwsh -NoProfile -File ./setup.ps1 -Aud <paste-aud-tag>
+~/.local/pwsh/pwsh -NoProfile -File ./setup.ps1 -AllowedEmails you@example.com
 npx wrangler deploy
 npx wrangler secret put TELNYX_API_KEY
 npx wrangler secret put TWILIO_ACCOUNT_SID
@@ -186,7 +189,7 @@ python3 scripts/gen-npa.py
 
 | Symptom | Fix |
 | --- | --- |
-| Page says "the sign-in check failed" | `POLICY_AUD` or `TEAM_DOMAIN` in `wrangler.toml` doesn't match your Access app; rerun `setup.ps1` and redeploy. |
+| Page says "the sign-in check failed" | Access isn't protecting the Worker (Access tab, **All traffic**), your email isn't in `ALLOWED_EMAILS`, or, with a hostname-based Access app, `TEAM_DOMAIN`/`POLICY_AUD` don't match it. |
 | "No API key set" | Add the provider's secrets with `npx wrangler secret put`. |
 | "The provider rejected the API key" | The key or token is wrong or revoked; put it again. |
 | Custom domain fails to deploy | The domain must be on Cloudflare DNS, and the hostname can't already have a DNS record. |

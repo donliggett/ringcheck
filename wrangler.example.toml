@@ -19,8 +19,10 @@ binding = "RINGCHECK_KV"
 id = "__KV_NAMESPACE_ID__"          # from: npx wrangler kv namespace create RINGCHECK_KV
 
 [vars]
+# Worker-level Access (Workers & Pages > ringcheck > Access) needs none of these.
+# Only for a hostname-based Access application:
 TEAM_DOMAIN = "__TEAM_DOMAIN__"     # e.g. https://your-team.cloudflareaccess.com
-POLICY_AUD = "__POLICY_AUD__"       # Access application AUD tag; fill in after Access is set up
+POLICY_AUD = "__POLICY_AUD__"       # that application's AUD tag
 ALLOWED_EMAILS = ""                 # optional, comma-separated; blank = anyone Access lets in
 
 # Secrets (never in this file):

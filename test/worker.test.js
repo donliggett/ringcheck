@@ -179,3 +179,15 @@ test('API routes: auth, content type, origin, config round trip', async () => {
   assert.equal(res.headers.get('cache-control'), 'no-store');
   assert.equal((await res.json()).cnam.name, 'ACME PLUMBING');
 });
+
+test('Worker-level Access: ctx.access is trusted, ALLOWED_EMAILS still applies', async () => {
+  const req = new Request('https://rc.example.com/api/config');
+  const ctx = (email, aud = 'worker-aud') => ({ access: { aud, getIdentity: async () => ({ email }) } });
+  assert.equal((await verifyAccess(req, {}, ctx('me@example.com'))).ok, true);
+  assert.equal((await verifyAccess(req, { ALLOWED_EMAILS: 'me@example.com' }, ctx('Me@Example.com'))).ok, true);
+  assert.equal((await verifyAccess(req, { ALLOWED_EMAILS: 'me@example.com' }, ctx('other@example.com'))).reason, 'email_not_allowed');
+  assert.equal((await verifyAccess(req, { POLICY_AUD: 'abc' }, ctx('me@example.com', 'xyz'))).reason, 'wrong_audience');
+  assert.equal((await verifyAccess(req, { POLICY_AUD: '__POLICY_AUD__' }, ctx('me@example.com'))).ok, true);
+  // No ctx.access and no JWT config: locked.
+  assert.equal((await verifyAccess(req, {}, {})).reason, 'access_not_configured');
+});

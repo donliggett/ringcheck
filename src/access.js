@@ -1,19 +1,43 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 // Cloudflare Access sits in front of the whole Worker. This check is a second
-// lock: every /api request must carry a valid Access JWT for this app's AUD.
+// lock on every /api request. Two supported setups:
+//
+// 1. Worker-level Access (Workers & Pages > your Worker > Access). Cloudflare
+//    verifies the login and hands the Worker ctx.access. No AUD tag needed.
+// 2. A hostname-based Access application. Set TEAM_DOMAIN and POLICY_AUD and
+//    the Worker verifies the Cf-Access-Jwt-Assertion JWT itself.
 
 let jwks = null;
 let jwksTeam = null;
 
 const placeholder = (v) => !v || String(v).startsWith('__');
 
-export async function verifyAccess(request, env) {
+function emailAllowed(env, email) {
+  const allowed = String(placeholder(env.ALLOWED_EMAILS) ? '' : env.ALLOWED_EMAILS)
+    .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return !allowed.length || allowed.includes(String(email || '').toLowerCase());
+}
+
+export async function verifyAccess(request, env, ctx) {
   const url = new URL(request.url);
   if (env.DEV_BYPASS_ACCESS === 'true' && (url.hostname === 'localhost' || url.hostname === '127.0.0.1')) {
     return { ok: true, email: 'dev@localhost' };
   }
 
+  // 1. Worker-level Access: present only when Access authenticated this request.
+  if (ctx && ctx.access) {
+    if (!placeholder(env.POLICY_AUD) && ctx.access.aud && ctx.access.aud !== env.POLICY_AUD) {
+      return { ok: false, reason: 'wrong_audience' };
+    }
+    let identity = null;
+    try { identity = await ctx.access.getIdentity(); } catch { identity = null; }
+    const email = identity && identity.email ? String(identity.email).toLowerCase() : '';
+    if (!emailAllowed(env, email)) return { ok: false, reason: 'email_not_allowed' };
+    return { ok: true, email };
+  }
+
+  // 2. Hostname-based Access application: verify the JWT ourselves.
   const team = String(env.TEAM_DOMAIN || '').replace(/\/+$/, '');
   const aud = env.POLICY_AUD;
   if (placeholder(team) || !team.startsWith('https://') || placeholder(aud)) {
@@ -35,10 +59,7 @@ export async function verifyAccess(request, env) {
     return { ok: false, reason: 'invalid_token' };
   }
 
-  const allowed = String(placeholder(env.ALLOWED_EMAILS) ? '' : env.ALLOWED_EMAILS)
-    .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
   const email = String(payload.email || '').toLowerCase();
-  if (allowed.length && !allowed.includes(email)) return { ok: false, reason: 'email_not_allowed' };
-
+  if (!emailAllowed(env, email)) return { ok: false, reason: 'email_not_allowed' };
   return { ok: true, email };
 }

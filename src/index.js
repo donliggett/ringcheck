@@ -29,7 +29,7 @@ function sameOrigin(request, url) {
 
 export async function handleApi(request, env, deps = {}) {
   const url = new URL(request.url);
-  const auth = await (deps.verify || verifyAccess)(request, env);
+  const auth = await (deps.verify || verifyAccess)(request, env, deps.ctx);
   if (!auth.ok) return json({ error: 'forbidden', reason: auth.reason }, 403);
   if (!sameOrigin(request, url)) return json({ error: 'forbidden', reason: 'cross_origin' }, 403);
 
@@ -63,11 +63,11 @@ export async function handleApi(request, env, deps = {}) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
     try {
-      return await handleApi(request, env);
+      return await handleApi(request, env, { ctx });
     } catch (e) {
       console.error('ringcheck api error', e && e.stack ? e.stack : e);
       return json({ error: 'server_error' }, 500);

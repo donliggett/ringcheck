@@ -4,16 +4,17 @@
 
 .DESCRIPTION
   Starts from wrangler.example.toml and fills in the values that belong to you.
-  Run it again at any time with only the values you want to change; for
-  example, add -Aud once Cloudflare Access is set up.
+  Run it again at any time with only the values you want to change.
+  -TeamDomain and -Aud are only for a hostname-based Access application;
+  Worker-level Access (Workers & Pages > ringcheck > Access) needs neither.
 
   Works in Windows PowerShell 5.1 and PowerShell 7 (pwsh) on macOS/Linux.
 
 .EXAMPLE
-  .\setup.ps1 -Hostname ringcheck.example.com -TeamDomain https://myteam.cloudflareaccess.com -CreateKv
+  .\setup.ps1 -Hostname ringcheck.example.com -CreateKv
 
 .EXAMPLE
-  .\setup.ps1 -Aud 0123abcd...   # after Access is set up
+  .\setup.ps1 -AllowedEmails you@example.com
 #>
 param(
     [string]$Hostname,
@@ -106,15 +107,13 @@ if ($KvId) {
 [System.IO.File]::WriteAllText($target, $text, $utf8)
 
 $left = @()
-foreach ($k in '__HOSTNAME__', '__KV_NAMESPACE_ID__', '__TEAM_DOMAIN__', '__POLICY_AUD__') {
+foreach ($k in '__HOSTNAME__', '__KV_NAMESPACE_ID__') {
     if ($text.Contains($k)) { $left += $k }
 }
 Write-Host 'wrangler.toml updated.'
 if ($left.Count) {
     Write-Host ('Still to fill in: ' + ($left -join ', '))
-    if ($left -contains '__POLICY_AUD__') {
-        Write-Host 'The API stays locked (403) until POLICY_AUD is set. That is expected before Access is set up.'
-    }
 } else {
-    Write-Host 'All values set. Deploy with: npx wrangler deploy'
+    Write-Host 'Ready. Deploy with: npx wrangler deploy'
+    Write-Host 'Then protect the Worker: Workers & Pages > ringcheck > Access > All traffic.'
 }

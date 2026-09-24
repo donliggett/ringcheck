@@ -5,8 +5,8 @@
 .DESCRIPTION
   Starts from wrangler.example.toml and fills in the values that belong to you.
   Run it again at any time with only the values you want to change.
-  -TeamDomain and -Aud are only for a hostname-based Access application;
-  Worker-level Access (Workers & Pages > ringcheck > Access) needs neither.
+  After Access protects the Worker, -DetectAccess reads your Access team
+  domain and AUD tag from the login redirect so the Worker can verify logins.
 
   Works in Windows PowerShell 5.1 and PowerShell 7 (pwsh) on macOS/Linux.
 
@@ -14,7 +14,7 @@
   .\setup.ps1 -Hostname ringcheck.example.com -CreateKv
 
 .EXAMPLE
-  .\setup.ps1 -AllowedEmails you@example.com
+  .\setup.ps1 -DetectAccess -AllowedEmails you@example.com
 #>
 param(
     [string]$Hostname,
@@ -22,7 +22,8 @@ param(
     [string]$Aud,
     [string]$AllowedEmails,
     [string]$KvId,
-    [switch]$CreateKv
+    [switch]$CreateKv,
+    [switch]$DetectAccess
 )
 
 $ErrorActionPreference = 'Stop'
@@ -43,6 +44,26 @@ function Set-TomlValue([string]$body, [string]$key, [string]$value) {
     $re = New-Object System.Text.RegularExpressions.Regex $pattern
     $evaluator = [System.Text.RegularExpressions.MatchEvaluator]({ param($m) $m.Groups[1].Value + '"' + $value + '"' }.GetNewClosure())
     return $re.Replace($body, $evaluator, 1)
+}
+
+if ($DetectAccess) {
+    $hostNow = $Hostname
+    if (-not $hostNow) { $hostNow = [regex]::Match($text, '(?m)^\s*pattern\s*=\s*"([^"]*)"').Groups[1].Value }
+    if (-not $hostNow -or $hostNow.StartsWith('__')) { throw 'Set -Hostname and deploy before using -DetectAccess' }
+    $curl = 'curl'
+    if ($env:OS -eq 'Windows_NT') { $curl = 'curl.exe' }
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { $headers = (& $curl -s -I "https://$hostNow/" 2>$null) -join "`n" } finally { $ErrorActionPreference = $prev }
+    $loc = [regex]::Match($headers, '(?im)^location:\s*(https://([a-z0-9-]+)\.cloudflareaccess\.com/\S*)')
+    if (-not $loc.Success) {
+        throw "https://$hostNow/ did not redirect to a Cloudflare Access login. Protect the Worker (Access tab, All traffic) and try again."
+    }
+    $kid = [regex]::Match($loc.Groups[1].Value, '[?&]kid=([0-9a-f]{32,128})')
+    if (-not $kid.Success) { throw 'Found the Access login but no AUD tag in it. Copy the tag from Zero Trust and pass -Aud.' }
+    $TeamDomain = 'https://' + $loc.Groups[2].Value + '.cloudflareaccess.com'
+    $Aud = $kid.Groups[1].Value
+    Write-Host "Detected Access team $TeamDomain and its AUD tag."
 }
 
 if ($Hostname) {
@@ -115,5 +136,8 @@ if ($left.Count) {
     Write-Host ('Still to fill in: ' + ($left -join ', '))
 } else {
     Write-Host 'Ready. Deploy with: npx wrangler deploy'
-    Write-Host 'Then protect the Worker: Workers & Pages > ringcheck > Access > All traffic.'
+    if ($text.Contains('__POLICY_AUD__')) {
+        Write-Host 'Then protect the Worker (Workers & Pages > ringcheck > Access > All traffic)'
+        Write-Host 'and run: .\setup.ps1 -DetectAccess, then deploy again.'
+    }
 }

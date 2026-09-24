@@ -1,12 +1,11 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 // Cloudflare Access sits in front of the whole Worker. This check is a second
-// lock on every /api request. Two supported setups:
+// lock on every /api request:
 //
-// 1. Worker-level Access (Workers & Pages > your Worker > Access). Cloudflare
-//    verifies the login and hands the Worker ctx.access. No AUD tag needed.
-// 2. A hostname-based Access application. Set TEAM_DOMAIN and POLICY_AUD and
-//    the Worker verifies the Cf-Access-Jwt-Assertion JWT itself.
+// 1. If Cloudflare hands the Worker ctx.access (Worker-level Access), trust it.
+// 2. Otherwise verify the Cf-Access-Jwt-Assertion JWT against TEAM_DOMAIN and
+//    POLICY_AUD (`setup.ps1 -DetectAccess` fills both in).
 
 let jwks = null;
 let jwksTeam = null;

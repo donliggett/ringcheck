@@ -56,9 +56,20 @@ In the Cloudflare dashboard:
 5. **Session duration:** 1 month, so the iPhone and desktop don't ask for a
    code every time.
 
-Worker-level Access passes the signed-in identity to the Worker directly, so
-there is no AUD tag to copy. (Using a hostname-based Access application
-instead? Run `.\setup.ps1 -TeamDomain https://your-team.cloudflareaccess.com -Aud <tag>`.)
+Then let the Worker verify logins too. `-DetectAccess` reads your Access team
+domain and AUD tag from the login redirect, so there is nothing to copy:
+
+```powershell
+.\setup.ps1 -DetectAccess
+npx wrangler deploy
+```
+
+To set them by hand instead: `.\setup.ps1 -TeamDomain https://your-team.cloudflareaccess.com -Aud <tag>`.
+The tag is the `kid=` value in the login redirect
+(`curl.exe -sI https://ringcheck.example.com | findstr /i location`).
+
+With the *Cloudflare account members* policy you sign in with your Cloudflare
+login, so no emailed code arrives if you're already signed in to the dashboard.
 
 ## 5. Finish the config and add provider keys
 
@@ -162,7 +173,7 @@ Deploy, Access and secrets are the same as steps 3 to 5:
 
 ```bash
 npx wrangler deploy
-~/.local/pwsh/pwsh -NoProfile -File ./setup.ps1 -AllowedEmails you@example.com
+~/.local/pwsh/pwsh -NoProfile -File ./setup.ps1 -DetectAccess -AllowedEmails you@example.com
 npx wrangler deploy
 npx wrangler secret put TELNYX_API_KEY
 npx wrangler secret put TWILIO_ACCOUNT_SID
@@ -189,7 +200,7 @@ python3 scripts/gen-npa.py
 
 | Symptom | Fix |
 | --- | --- |
-| Page says "the sign-in check failed" | Access isn't protecting the Worker (Access tab, **All traffic**), your email isn't in `ALLOWED_EMAILS`, or, with a hostname-based Access app, `TEAM_DOMAIN`/`POLICY_AUD` don't match it. |
+| Page says "the sign-in check failed" | Open `/api/config` to see the reason. `access_not_configured`: run `.\setup.ps1 -DetectAccess` and redeploy. `email_not_allowed`: fix `-AllowedEmails`. Otherwise check Access protects the Worker with **All traffic**. |
 | "No API key set" | Add the provider's secrets with `npx wrangler secret put`. |
 | "The provider rejected the API key" | The key or token is wrong or revoked; put it again. |
 | Custom domain fails to deploy | The domain must be on Cloudflare DNS, and the hostname can't already have a DNS record. |

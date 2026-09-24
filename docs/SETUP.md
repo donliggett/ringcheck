@@ -1,8 +1,7 @@
 # Setting up RingCheck
 
 About 30 minutes, once. Commands are for Windows PowerShell 5.1 (one command
-per line). On macOS/Linux, run `setup.ps1` with PowerShell 7 (`pwsh`) or copy
-`wrangler.example.toml` to `wrangler.toml` and edit it by hand.
+per line). On Linux, see [Linux](#linux).
 
 ## What you need
 
@@ -131,6 +130,57 @@ npm test
 ```
 
 `DEV_BYPASS_ACCESS=true` skips the Access check only for `localhost`.
+
+## Linux
+
+```bash
+git clone https://github.com/<you>/ringcheck.git
+cd ringcheck
+npm ci
+npx wrangler login
+```
+
+PowerShell 7 for `setup.ps1` (no root needed):
+
+```bash
+ver=$(curl -sS https://api.github.com/repos/PowerShell/PowerShell/releases/latest | python3 -c "import sys,json;print(json.load(sys.stdin)['tag_name'].lstrip('v'))")
+curl -sSL -o /tmp/pwsh.tgz "https://github.com/PowerShell/PowerShell/releases/download/v$ver/powershell-$ver-linux-x64.tar.gz"
+mkdir -p ~/.local/pwsh
+tar -xzf /tmp/pwsh.tgz -C ~/.local/pwsh
+chmod +x ~/.local/pwsh/pwsh
+rm /tmp/pwsh.tgz
+~/.local/pwsh/pwsh -NoProfile -File ./setup.ps1 -Hostname ringcheck.example.com -TeamDomain https://your-team.cloudflareaccess.com -CreateKv
+```
+
+Without PowerShell: `cp wrangler.example.toml wrangler.toml` and fill in the
+`__PLACEHOLDER__` values.
+
+Deploy, Access and secrets are the same as steps 3 to 5:
+
+```bash
+npx wrangler deploy
+~/.local/pwsh/pwsh -NoProfile -File ./setup.ps1 -Aud <paste-aud-tag>
+npx wrangler deploy
+npx wrangler secret put TELNYX_API_KEY
+npx wrangler secret put TWILIO_ACCOUNT_SID
+npx wrangler secret put TWILIO_AUTH_TOKEN
+```
+
+Local dev and checks:
+
+```bash
+cp .dev.vars.example .dev.vars
+npx wrangler dev --persist-to ~/.ringcheck-state   # keep local KV off mounted/network drives
+npm test
+npx wrangler deploy --dry-run --outdir /tmp/ringcheck-dist
+```
+
+Regenerate the area code table:
+
+```bash
+pip install phonenumbers
+python3 scripts/gen-npa.py
+```
 
 ## Troubleshooting
 

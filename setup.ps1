@@ -61,13 +61,43 @@ if ($PSBoundParameters.ContainsKey('AllowedEmails')) {
     $text = Set-TomlValue $text 'ALLOWED_EMAILS' $AllowedEmails
 }
 
-if ($CreateKv -and -not $KvId) {
-    Write-Host 'Creating KV namespace RINGCHECK_KV...'
-    $out = (& npx wrangler kv namespace create RINGCHECK_KV 2>&1 | Out-String)
-    $m = [regex]::Match($out, '[0-9a-f]{32}')
-    if (-not $m.Success) { Write-Host $out; throw 'Could not read the namespace id; pass it with -KvId' }
-    $KvId = $m.Value
+function Invoke-Wrangler([string[]]$WranglerArgs, [switch]$StdoutOnly) {
+    # Windows PowerShell 5.1 turns native stderr (npm notices, wrangler warnings)
+    # into terminating errors under 'Stop', so run npx with 'Continue'.
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        if ($StdoutOnly) { $lines = & npx --yes wrangler @WranglerArgs 2>$null | ForEach-Object { "$_" } }
+        else { $lines = & npx --yes wrangler @WranglerArgs 2>&1 | ForEach-Object { "$_" } }
+        return @{ Code = $LASTEXITCODE; Text = ($lines -join "`n") }
+    } finally {
+        $ErrorActionPreference = $prev
+    }
 }
+
+if ($CreateKv -and -not $KvId) {
+    Write-Host 'Looking for an existing RINGCHECK_KV namespace...'
+    $list = Invoke-Wrangler @('kv', 'namespace', 'list') -StdoutOnly
+    $jsonStart = $list.Text.IndexOf('[')
+    $jsonEnd = $list.Text.LastIndexOf(']')
+    if ($list.Code -eq 0 -and $jsonStart -ge 0 -and $jsonEnd -gt $jsonStart) {
+        $found = ($list.Text.Substring($jsonStart, $jsonEnd - $jsonStart + 1) | ConvertFrom-Json) |
+            Where-Object { $_.title -eq 'RINGCHECK_KV' -or $_.title -like '*-RINGCHECK_KV' } |
+            Select-Object -First 1
+        if ($found) { $KvId = $found.id; Write-Host "Using existing namespace $($found.title)" }
+    }
+    if (-not $KvId) {
+        Write-Host 'Creating KV namespace RINGCHECK_KV...'
+        $made = Invoke-Wrangler @('kv', 'namespace', 'create', 'RINGCHECK_KV')
+        $m = [regex]::Match($made.Text, '"?id"?\s*[=:]\s*"([0-9a-f]{32})"')
+        if ($made.Code -ne 0 -or -not $m.Success) {
+            Write-Host $made.Text
+            throw 'Could not create or read the KV namespace. Run "npx wrangler kv namespace list" and pass the id with -KvId.'
+        }
+        $KvId = $m.Groups[1].Value
+    }
+}
+
 if ($KvId) {
     if ($KvId -notmatch '^[0-9a-f]{32}$') { throw 'KvId should be a 32-character hex id' }
     $text = Set-TomlValue $text 'id' $KvId
